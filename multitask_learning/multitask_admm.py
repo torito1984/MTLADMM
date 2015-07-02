@@ -70,8 +70,9 @@ class MTLModel(BaseEstimator, ClassifierMixin):
         #a.setdiag([0]) # Delete first column
         #X = X*a
         
+        # Doubt: this is actually R^2
         # Radius of the ball of the examples
-        self.R = X[:,1:].multiply(X[:,1:]).sum(axis = 1).max() # Sum in the correct dimension!!
+        self.R = X[:,1:].multiply(X[:,1:]).sum(axis = 1).max()
 
 
         # Radius of the ball of the w and z
@@ -115,8 +116,6 @@ class MTLModel(BaseEstimator, ClassifierMixin):
             if self.verbose:
                 print 'ADMM step:',it+1
             self.outer_step = it + 1
-        
-            #t0 = time.time()
             
             # W optimization
             for task in xrange(len(self.M_list)): # Zero based task indexing
@@ -124,15 +123,10 @@ class MTLModel(BaseEstimator, ClassifierMixin):
                     print 'Start optimizing task:',task,'|',len(self.M_list)  
                 self.W[X.shape[1] * task : X.shape[1] * (task+1)] = self.trainTask(X,task,labels,Zhat,Yhat)
 
-            #print 'Done Tasks in:',time.time()-t0
-        
-            #t0 = time.time()
 
             if self.verbose:
                 print 'Start optimizing Z'
             self.findZ(self.W,Yhat,Z)
-
-            #print 'Done Z in:',time.time()-t0
             
             if self.verbose:
                 print 'Start finding Y'

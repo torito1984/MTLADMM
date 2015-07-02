@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 25 16:23:38 2015
 
-@author: Michele
+@author: Michele Donini and David Martinez
 """
 
 import cython
@@ -70,22 +70,19 @@ def CtrainTask(float M,
 
     if selfobjXtasks is NULL:
         raise MemoryError()
+        
     cdef int i,j
     for i in xrange(mt):
         selfobjXtasks[i] = selfobjXtasksPy[i] 
     
     cdef np.ndarray[FLOAT_t, ndim=1] w = np.zeros((Xshape1), dtype=FFLOAT)
     cdef float *wdata = <float *> w.data
-    cdef np.ndarray[FLOAT_t, ndim=1] w_accum = np.zeros((Xshape1), dtype=FFLOAT)
-    cdef float *waccumdata = <float *> w_accum.data
-
+    cdef np.ndarray[FLOAT_t, ndim=1] a = np.zeros((Xshape1), dtype=FFLOAT)
+    cdef float *adata = <float *> a.data
+    
     if mt == 0:
         print 'ERROR! Task',t,'with zero examples in the training part'
-        return w # TODO: Check this
-    
-    # Support variables:
-    cdef np.ndarray[FLOAT_t, ndim=1] v = np.zeros((Xshape1), dtype=FFLOAT)
-    cdef float *vdata = <float *>v.data
+        return w # TODO: Change this. In this case the optimal has a closed formula
 
     # Note: to training, task is sent zero based so no correction is needed
     cdef np.ndarray[FLOAT_t, ndim=1] Z = totZ[t*Xshape1 : (t+1)*Xshape1]
@@ -94,43 +91,56 @@ def CtrainTask(float M,
     cdef float * Ydata = <float *>Y.data
 
     cdef float lam1 = selfobjlam1
-    cdef float actual_prec = selfobjprec + 1.0
     cdef float lam = (selfobjro1+selfobjeta)/mt
     cdef float eta = selfobjeta
 
     cdef int step = 0
-    cdef int samples = 0
 
     cdef int rand_int
     cdef int random_value
-    cdef float norm2
-    cdef float prec_ro
     cdef float delta
-    cdef float wtmp_correction
     cdef long y
     cdef float mm
-
-    cdef float dprodVal = 0.0
-    cdef maxbag = 0
+    cdef int iterations
+    cdef float dprodVal
+    
+    # Averaging variables
+    cdef float alphait = 0.5
+    cdef float alphat = 1
+    cdef float betat  = 1
+    cdef float sqa   = 0
+    cdef float mut
+    cdef int t0 
+    
+    cdef maxbag
     if mt < 100:
         maxbag = mt
     else:
         maxbag = 100
 
+    # Calculate number of iterations
+    # Ensure a minimum number of iterations for small datasets!!
+    iterations = max(100, selfobjmaxSGDiter*mt/maxbag)
+    # Limit for averaging
+    t0 = (int)alphait*iterations
+    
     cdef float imaxbag = 1.0 / maxbag
 
-    while (samples <= selfobjmaxSGDiter*mt and actual_prec >= selfobjprec):
-        #print 'Step',step+1
-        
-        samples += maxbag
-        step += 1
-        delta = 1.0 / (lam * step)
-    
-        # Calculate direction
-        for i in xrange(Xshape1):
-            # vdata[i] = (1.0 / mt) * ( (lam/2.0) * wdata[i] + Ydata[i] - eta*Zdata[i]) # Wrong?
-            vdata[i] = (lam * wdata[i]) + (1.0 / mt) * (Ydata[i] - eta*Zdata[i])  
+    # Pair representation of w for sparse SGD
+    cdef float sw    = 1
+    cdef float swold = 1
+    cdef float sq    = 0
 
+ 
+    while (step <= iterations):
+        
+        step  += 1
+        delta = 1.0 / (lam * step) # TODO: Change this? put a rho0 for controlling first steps?
+        mut   = 1/max(1, step-t0)
+    
+        swold = sw
+        sw = (1-delta*lam)*sw
+    
         # Use a bunch of examples
         for j in xrange(maxbag):
             rand_int = int(rand()/float(RAND_MAX) * (mt-1))
@@ -140,49 +150,46 @@ def CtrainTask(float M,
             # Do dot product in sparse way!
             # Note columns in a row do not come in order necessarly
             dprodVal = 0.0
-    
-            for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): # Ignore task
+            
+            for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                 if Xindices[i] > 0: # Ignore task
-                    dprodVal += wdata[Xindices[i]]*Xdata[i]
-    
+                    dprodVal += (swold*(wdata[Xindices[i]] + sq*(Ydata[Xindices[i]] - eta*Zdata[Xindices[i]])))*Xdata[i]
+                    
             if (1.0 - y * dprodVal) > 0:
                 for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                     if Xindices[i] > 0: # Ignore task
-                        vdata[Xindices[i]] -= imaxbag * (Xdata[i] * y) # removed: (1.0 / mt) *
-        
-        # Follow direction
-        norm2 = 0.0
-        for i in xrange(1,Xshape1): # Ignore task dimension
-            wdata[i] -= delta * vdata[i]
-            norm2 += wdata[i]*wdata[i]
-         
-        norm2 = sqrt(norm2)
+                        wdata[Xindices[i]] -= imaxbag*delta*(Xdata[i]*y)/sw 
+                        if mu < 1:
+                            adata[Xindices[i]] += alphat*imaxbag*delta*(Xdata[i]*y)/sw 
 
-        if norm2 > 0:
-            wtmp_correction = sqrt(T * M / (2 * lam1)) / norm2
+        sq = sq - delta/(m*sw)
+                
+        if mu < 1:
+            sqa += alphat*delta/(m*sw)
+            betat  = betat/(1-mut)
+            alphat = alphat + mut*betat*sw
         else:
-            wtmp_correction = 0.0
-        
-        # min([1,wtmp_correction])
-        if wtmp_correction < 1:
-            mm = wtmp_correction
-        else:
-            mm = 1
+            betat  = 1
+            alphat = sw
 
-        # Scale into the feasible region and accumulate average w
-        for i in xrange(Xshape1):
-            wdata[i] *= mm                                              # Scale
-            waccumdata[i] = ((step-1)*waccumdata[i] + wdata[i])/step    # Accumulate the average
 
-        prec_ro = (1.0 / mt*mt) * (selfobjR + lam * selfobjbeta + selfobjeta*selfobjeta * selfobjbeta * (2.0 * selfobjouter_step + 1.0)) # TOOBS: evaluate correctly the new actual precision
-        actual_prec = prec_ro / (2.0 * lam * step)
-    if selfobjverbose:
-        print 'Precision bound for SGD of w_',t,' variable:',actual_prec,'|with limit:',selfobjprec
+    # Collapse the last vector to return the average
+    for i in xrange(1,Xshape1): # Ignore task dimension
+        wdata[i] = ((adata[i] + sqa*(Ydata[i]-eta*Zdata[i])) + alphat*(wdata[i] + sq*(Ydata[i]-eta*Zdata[i])))/betat
 
+    # Correct norm at least in the last step: we know it should be in that ball   
+    #norm2 = sqrt(norm2)            
+    #if norm2 > 0:
+    #    wtmp_correction = sqrt(T * M / (2 * lam1)) / norm2
+    #    # min([1,wtmp_correction])
+    #    if wtmp_correction < 1:
+    #        # Scale into the feasible region
+    #        for i in xrange(Xshape1):
+    #            wdata[i] *= wtmp_correction 
+                        
     # FREE THE MEMORY
     free(selfobjXtasks)
-
-    return w_accum
+    return wdata # TODO: Return w?
 
 @cython.boundscheck(False)
 def CfindZ(float M,
