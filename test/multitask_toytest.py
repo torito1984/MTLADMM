@@ -5,11 +5,13 @@ Created on Mon Mar 23 11:36:15 2015
 @author: davidmartinezrego
 """
 
+import sys
+sys.path.insert(0, '../')
 
 # Test the algorithm with Toy Problem:
 import numpy as np
 import matplotlib.pyplot as plt
-from multitask_toy_problem import  make_multitask_classification
+from multitask_toy_problem_2 import  make_multitask_classification
 from sklearn.metrics import roc_auc_score, classification_report, accuracy_score
 from sklearn.cross_validation import train_test_split
 #from sklearn.preprocessing import label_binarize
@@ -20,13 +22,15 @@ import scipy.sparse.csr
 import scipy.sparse.csc
 import multitask_learning.multitask_admm as mt
 import time
+from math import log10
+
 
 t0 = time.time()
 random_state = np.random.RandomState(0)
 # import some data to play with:
 
 # Number of tasks:
-n_of_task = 400
+n_of_task = 800
 T = n_of_task # For later use
 
 # Number of examples for each task: (automatically balanced over +1 and -1 labels)
@@ -36,14 +40,14 @@ for i in xrange(5):
 
 
 # Std of the relevant features:
-#std_relevant_features = [0.25]*8 #[1.0,0.25,0.1,0.05,0.01]
-std_relevant_features = [10.0]*8 #[1.0,0.25,0.1,0.05,0.01]
+std_relevant_features = [0.25]*8 #[1.0,0.25,0.1,0.05,0.01]
+#std_relevant_features = [10.0]*8 #[1.0,0.25,0.1,0.05,0.01]
 n_relevant_features = len(std_relevant_features)
 
 # Number of not useful features:
 n_irrelevant_features = 100
 
-X,y,W = make_multitask_classification(n_samples_per_task=n_samples_per_task_list,
+X,y = make_multitask_classification(n_samples_per_task=n_samples_per_task_list,
                                     n_relevant_features=n_relevant_features,
                                     std_relevant_features = std_relevant_features,
                                     n_irrelevant_features=n_irrelevant_features,
@@ -74,16 +78,19 @@ for train, test in kf:
     # This makes the problem comparable to standard SVM for "all separate" and
     # the results more interpretable
 
+    # Original test
     C = [0.1, 1, 10, 100, 1000, 2000, 3000, 4000] # C = T/2*lambda_1
     mu = [10**i for i in range(-1,10)] # mu = T*lambda_2/lambda_1
-    #mu = [0.1, 0.5, 1, 2, 10, 1000] # mu = T*lambda_2/lambda_1
+   
+    #C = [100] # C = T/2*lambda_1
+    #mu = [10**6] # mu = T*lambda_2/lambda_1
     
     tuned_parameters = {'C': C, 'mu': mu}
     
     scores = ['roc_auc']
     for score in scores:
         print "# Tuning hyper-parameters for %s" % score
-        clf = GridSearchCV(estimator = mt.MTLModel(maxADMMiter = 16, maxSGDiter = 20.0, prec = 1e-5, eta = 1.0),
+        clf = GridSearchCV(estimator = mt.MTLModel(maxADMMiter = 20, maxSGDiter = 20.0, prec = 1e-5, eta = 1.0),
                            param_grid=tuned_parameters, cv=Kf_of_validation, scoring=score, n_jobs = 1, verbose=1)
         ytrain = y[train]
         ytest = y[test]
@@ -134,10 +141,10 @@ plt.figure(figsize=(8, 6))
 plt.subplots_adjust(left=0.05, right=0.95, bottom=0.15, top=0.95)
 plt.imshow(scores, interpolation='nearest', cmap=plt.cm.spectral)
 plt.ylabel('C')
-plt.xlabel('mu')
+plt.xlabel('log(mu)')
 plt.colorbar()
 plt.yticks(np.arange(len(tuned_parameters['C'])), tuned_parameters['C'], rotation=45)
-plt.xticks(np.arange(len(tuned_parameters['mu'])), tuned_parameters['mu'])
+plt.xticks(np.arange(len(tuned_parameters['mu'])), [log10(i) for i in tuned_parameters['mu']])
 plt.show()
 
 print 'Done!'

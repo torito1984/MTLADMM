@@ -80,7 +80,7 @@ def CtrainTask(float M,
     cdef np.ndarray[FLOAT_t, ndim=1] a = np.zeros((Xshape1), dtype=FFLOAT)
     cdef float *adata = <float *> a.data
     
-    if mt == 0:
+    if (mt == 0):
         print 'ERROR! Task',t,'with zero examples in the training part'
         return w # TODO: Change this. In this case the optimal has a closed formula
 
@@ -122,7 +122,9 @@ def CtrainTask(float M,
     # Ensure a minimum number of iterations for small datasets!!
     iterations = max(100, selfobjmaxSGDiter*mt/maxbag)
     # Limit for averaging
-    t0 = (int)alphait*iterations
+    t0 = int(alphait*iterations)
+    
+    t0 = 100000000000 # TODO: Remove this
     
     cdef float imaxbag = 1.0 / maxbag
 
@@ -131,11 +133,12 @@ def CtrainTask(float M,
     cdef float swold = 1
     cdef float sq    = 0
 
- 
+    cdef lam0 = 0.95
+    
     while (step <= iterations):
         
         step  += 1
-        delta = 1.0 / (lam * step) # TODO: Change this? put a rho0 for controlling first steps?
+        delta = lam0 / (lam * step) # TODO: Change this? put a rho0 for controlling first steps?
         mut   = 1/max(1, step-t0)
     
         swold = sw
@@ -153,19 +156,19 @@ def CtrainTask(float M,
             
             for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                 if Xindices[i] > 0: # Ignore task
-                    dprodVal += (swold*(wdata[Xindices[i]] + sq*(Ydata[Xindices[i]] - eta*Zdata[Xindices[i]])))*Xdata[i]
+                    dprodVal += (swold*(wdata[Xindices[i]] + sq*(Ydata[Xindices[i]] - eta*Zdata[Xindices[i]])))*Xdata[Xindices[i]]
                     
             if (1.0 - y * dprodVal) > 0:
                 for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                     if Xindices[i] > 0: # Ignore task
-                        wdata[Xindices[i]] -= imaxbag*delta*(Xdata[i]*y)/sw 
-                        if mu < 1:
-                            adata[Xindices[i]] += alphat*imaxbag*delta*(Xdata[i]*y)/sw 
+                        wdata[Xindices[i]] -= imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
+                        if (mut < 1):
+                            adata[Xindices[i]] += alphat*imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
 
-        sq = sq - delta/(m*sw)
+        sq = sq - delta/(mt*sw)
                 
-        if mu < 1:
-            sqa += alphat*delta/(m*sw)
+        if (mut < 1):
+            sqa += alphat*delta/(mt*sw)
             betat  = betat/(1-mut)
             alphat = alphat + mut*betat*sw
         else:
@@ -189,7 +192,7 @@ def CtrainTask(float M,
                         
     # FREE THE MEMORY
     free(selfobjXtasks)
-    return wdata # TODO: Return w?
+    return w 
 
 @cython.boundscheck(False)
 def CfindZ(float M,
