@@ -30,7 +30,7 @@ random_state = np.random.RandomState(0)
 # import some data to play with:
 
 # Number of tasks:
-n_of_task = 800
+n_of_task = 400
 T = n_of_task # For later use
 
 # Number of examples for each task: (automatically balanced over +1 and -1 labels)

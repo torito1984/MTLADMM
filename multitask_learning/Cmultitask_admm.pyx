@@ -105,7 +105,7 @@ def CtrainTask(float M,
     cdef float dprodVal
     
     # Averaging variables
-    cdef float alphait = 0.5
+    cdef float alphait = 0.33
     cdef float alphat = 1
     cdef float betat  = 1
     cdef float sqa   = 0
@@ -120,11 +120,9 @@ def CtrainTask(float M,
 
     # Calculate number of iterations
     # Ensure a minimum number of iterations for small datasets!!
-    iterations = max(1000, selfobjmaxSGDiter*mt/maxbag)
+    iterations = max(100, selfobjmaxSGDiter*mt/maxbag)
     # Limit for averaging
     t0 = int(alphait*iterations)
-    
-    t0 = 100000000000 # TODO: Remove this
     
     cdef float imaxbag = 1.0 / maxbag
 
@@ -156,14 +154,14 @@ def CtrainTask(float M,
             
             for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                 if Xindices[i] > 0: # Ignore task
-                    dprodVal += (swold*(wdata[Xindices[i]] + sq*(Ydata[Xindices[i]] - eta*Zdata[Xindices[i]])))*Xdata[Xindices[i]]
+                    dprodVal += (swold*(wdata[Xindices[i]] + sq*(Ydata[Xindices[i]] - eta*Zdata[Xindices[i]])))*Xdata[i]
                     
             if (1.0 - y * dprodVal) > 0:
                 for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                     if Xindices[i] > 0: # Ignore task
-                        wdata[Xindices[i]] += imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
+                        wdata[Xindices[i]] += imaxbag*delta*(Xdata[i]*y)/sw 
                         if (mut < 1):
-                            adata[Xindices[i]] += alphat*imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
+                            adata[Xindices[i]] -= alphat*imaxbag*delta*(Xdata[i]*y)/sw 
 
         sq = sq - delta/(mt*sw)
                 

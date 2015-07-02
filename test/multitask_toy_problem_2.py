@@ -69,7 +69,7 @@ def make_multitask_classification(n_samples_per_task = [10]*200,
     y = np.zeros(n_samples, dtype=np.int)
     
 
-    margin  = 6    # Margin of the classification tasks
+    margin  = 5    # Margin of the classification tasks
     vmargin = 0.1  # Variance in the normal to the classification hyperplane
     ovar    = 20   # Variance in the orthogonal direction of the normal vector for the datapoints
     ivar    = 10   # Variance in the orthogonal direction of the normal vector for the datapoints
