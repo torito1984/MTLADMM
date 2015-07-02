@@ -120,7 +120,7 @@ def CtrainTask(float M,
 
     # Calculate number of iterations
     # Ensure a minimum number of iterations for small datasets!!
-    iterations = max(100, selfobjmaxSGDiter*mt/maxbag)
+    iterations = max(1000, selfobjmaxSGDiter*mt/maxbag)
     # Limit for averaging
     t0 = int(alphait*iterations)
     
@@ -161,7 +161,7 @@ def CtrainTask(float M,
             if (1.0 - y * dprodVal) > 0:
                 for i in xrange(Xindptr[random_value],Xindptr[random_value+1]): 
                     if Xindices[i] > 0: # Ignore task
-                        wdata[Xindices[i]] -= imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
+                        wdata[Xindices[i]] += imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
                         if (mut < 1):
                             adata[Xindices[i]] += alphat*imaxbag*delta*(Xdata[Xindices[i]]*y)/sw 
 
@@ -178,7 +178,8 @@ def CtrainTask(float M,
 
     # Collapse the last vector to return the average
     for i in xrange(1,Xshape1): # Ignore task dimension
-        wdata[i] = ((adata[i] + sqa*(Ydata[i]-eta*Zdata[i])) + alphat*(wdata[i] + sq*(Ydata[i]-eta*Zdata[i])))/betat
+        #wdata[i] = ((adata[i] + sqa*(Ydata[i]-eta*Zdata[i])) + alphat*(wdata[i] + sq*(Ydata[i]-eta*Zdata[i])))/betat
+        wdata[i] =  sw*(wdata[i] + sq*(Ydata[i]-eta*Zdata[i]))
 
     # Correct norm at least in the last step: we know it should be in that ball   
     #norm2 = sqrt(norm2)            
