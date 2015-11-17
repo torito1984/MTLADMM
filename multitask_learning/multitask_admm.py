@@ -121,24 +121,25 @@ class MTLModel(BaseEstimator, ClassifierMixin):
             for task in xrange(len(self.M_list)): # Zero based task indexing
                 if self.verbose:
                     print 'Start optimizing task:',task,'|',len(self.M_list)  
-                self.W[X.shape[1] * task : X.shape[1] * (task+1)] = self.trainTask(X,task,labels,Zhat,Yhat)
+                self.W[X.shape[1] * task : X.shape[1] * (task+1)] = self.trainTask(X,task,labels,Z, Y)
 
 
             if self.verbose:
                 print 'Start optimizing Z'
-            self.findZ(self.W,Yhat,Z)
+            self.findZ(self.W,Y,Z)
             
             if self.verbose:
                 print 'Start finding Y'
-            Y = self.findY(Yhat,self.W,Z)
-            
+            Y = self.findY(Y,self.W,Z)
+
+            # By removing the correction, we recover Bersektas algorithm
             # calculate c_k
-            alphanew = (1.0+np.sqrt(1.0 + 4.0 * alphanew**2))/2.0
-            Zhat = Z + (alphaold - 1.0)/alphanew * (Z-Zold)
-            Yhat = Y + (alphaold - 1.0)/alphanew * (Y-Yold) 
-            alphaold = alphanew
-            Zold = Z
-            Yold = Y
+            # alphanew = (1.0+np.sqrt(1.0 + 4.0 * alphanew**2))/2.0
+            # Zhat = Z #+ (alphaold - 1.0)/alphanew * (Z-Zold)
+            # Yhat = Y #+ (alphaold - 1.0)/alphanew * (Y-Yold)
+            # alphaold = alphanew
+            # Zold = Z
+            # Yold = Y
         return self
         
     def predict(self, X):

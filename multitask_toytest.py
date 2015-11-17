@@ -11,7 +11,7 @@ sys.path.insert(0, '../')
 # Test the algorithm with Toy Problem:
 import numpy as np
 import matplotlib.pyplot as plt
-from multitask_toy_problem_2 import  make_multitask_classification
+from test.multitask_toy_problem_2 import  make_multitask_classification
 from sklearn.metrics import roc_auc_score, classification_report, accuracy_score
 from sklearn.cross_validation import train_test_split
 #from sklearn.preprocessing import label_binarize
@@ -90,7 +90,7 @@ for train, test in kf:
     scores = ['roc_auc']
     for score in scores:
         print "# Tuning hyper-parameters for %s" % score
-        clf = GridSearchCV(estimator = mt.MTLModel(maxADMMiter = 20, maxSGDiter = 20.0, prec = 1e-5, eta = 1.0),
+        clf = GridSearchCV(estimator = mt.MTLModel(maxADMMiter = 50, maxSGDiter = 20.0, prec = 1e-5, eta = 1.0),
                            param_grid=tuned_parameters, cv=Kf_of_validation, scoring=score, n_jobs = 1, verbose=1)
         ytrain = y[train]
         ytest = y[test]
